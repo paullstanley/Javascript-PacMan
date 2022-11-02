@@ -18,8 +18,6 @@ class Boundry {
     }
 
     draw() {
-        // ctx.fillStyle = 'blue';
-        // ctx.fillRect(this.position.x, this.position.y, this.width, this.height);
         ctx.drawImage(this.image, this.position.x, this.position.y);
     }
 }
@@ -29,12 +27,59 @@ class Player {
         this.position = position;
         this.velocity = velocity;
         this.radius = 15;
+        this.radians = 0.75;
+        this.openRate = 0.12;
+        this.rotation = 0;
+    }
+
+    draw() {
+        ctx.save();
+        ctx.translate(this.position.x, this.position.y);
+        ctx.rotate(this.rotation);
+        ctx.translate(-this.position.x, -this.position.y)
+        ctx.beginPath();
+        ctx.arc(
+            this.position.x, 
+            this.position.y, 
+            this.radius, 
+            this.radians, 
+            Math.PI * 2 - this.radians
+            );
+        ctx.lineTo(this.position.x, this.position.y);
+        ctx.fillStyle = 'yellow';
+        ctx.fill();
+        ctx.closePath();
+        ctx.restore();
+    }
+
+    update() {
+        this.draw();
+        this.position.x += this.velocity.x;
+        this.position.y += this.velocity.y;
+
+        if(this.radians < 0 || this.radians > .75) {
+            this.openRate = -this.openRate;
+        }
+        this.radians += this.openRate;
+    }
+}
+
+class Ghost {
+    static speed = 2;
+    constructor({position, velocity, color = 'red'}) {
+        this.position = position;
+        this.velocity = velocity;
+        this.radius = 15;
+        this.color = color;
+        this.speed = 2;
+        this.prevCollisions = [];
+        this.scared = false;
     }
 
     draw() {
         ctx.beginPath();
         ctx.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
-        ctx.fillStyle = 'yellow';
+        ctx.fillStyle = this.scared ? 'blue' : this.color;
         ctx.fill();
         ctx.closePath();
     }
@@ -61,8 +106,47 @@ class Pellet {
     }
 }
 
+class PowerUp {
+    constructor({position}) {
+        this.position = position;
+        this.radius = 8;
+    }
+
+    draw() {
+        ctx.beginPath();
+        ctx.arc(this.position.x, this.position.y, this.radius, 0, Math.PI * 2);
+        ctx.fillStyle = 'white';
+        ctx.fill();
+        ctx.closePath();
+    }
+}
+
 const pellets = [];
+const powerUps = [];
 const boundries = [];
+const ghosts = [
+    new Ghost({
+        position: {
+            x: Boundry.width * 6 + Boundry.width / 2,
+            y: Boundry.height + Boundry.height / 2
+        },
+        velocity: {
+            x: Ghost.speed,
+            y: 0
+        }
+    }),
+    new Ghost({
+        position: {
+            x: Boundry.width * 6 + Boundry.width / 2,
+            y: Boundry.height * 3 + Boundry.height / 2
+        },
+        velocity: {
+            x: Ghost.speed,
+            y: 0
+        },
+        color: 'pink'
+    })
+];
 const player = new Player({
     position: {
         x: Boundry.width + Boundry.width / 2,
@@ -104,7 +188,7 @@ const map = [
     ['|', '.', '[', ']', '.', '.', '.', '[', ']', '.', '|'],
     ['|', '.', '.', '.', '.', '^', '.', '.', '.', '.', '|'],
     ['|', '.', 'b', '.', '[', '5', ']', '.', 'b', '.', '|'],
-    ['|', '.', '.', '.', '.', '.', '.', '.', '.', '.', '|'],
+    ['|', '.', '.', '.', '.', '.', '.', '.', '.', 'p', '|'],
     ['4', '-', '-', '-', '-', '-', '-', '-', '-', '-', '3'],
 ];
 
@@ -304,6 +388,16 @@ map.forEach((row, column)=> {
                 })
             );
                 break
+            case 'p': 
+            powerUps.push(
+                new PowerUp({
+                    position: {
+                        x: Boundry.width * value + Boundry.width/2,
+                        y: Boundry.height * column + Boundry.height/2
+                    }
+                })
+            );
+                break
         }
     });
 });
@@ -312,19 +406,23 @@ function circleCollidesWithRectangle({
     circle,
     rectangle
 }) {
+    const padding = Boundry.width/2 - circle.radius - 1;
+
     return ( circle.position.y - circle.radius + circle.velocity.y<= 
-        rectangle.position.y + rectangle.height && 
+        rectangle.position.y + rectangle.height + padding && 
     circle.position.x + circle.radius + circle.velocity.x >= 
-        rectangle.position.x &&
+        rectangle.position.x - padding &&
     circle.position.y + circle.radius + circle.velocity.y >= 
-        rectangle.position.y &&
+        rectangle.position.y - padding &&
     circle.position.x - circle.radius + circle.velocity.x <= 
-        rectangle.position.x + rectangle.width)
+        rectangle.position.x + rectangle.width + padding)
 
 }
 
+let animationId
+
 function animate() {
-    requestAnimationFrame(animate);
+    animationId = requestAnimationFrame(animate);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if(keys.w.pressed && lastKey == 'w') {
         for (let i = 0; i < boundries.length; i ++)  {
@@ -411,12 +509,69 @@ function animate() {
             }
         }
     }
+
+    // Detect collision between ghosts and player
+    for(let i = ghosts.length - 1; 0 <= i; i--) {
+        const ghost = ghosts[i];
+        // Ghost touches player
+        if(
+            Math.hypot(
+                ghost.position.x - player.position.x, 
+                ghost.position.y - player.position.y
+            ) <
+            ghost.radius + player.radius
+            ) {
+                if(ghost.scared) {
+                    ghosts.splice(i, 1);
+                } else {
+                    cancelAnimationFrame(animationId);
+                    console.log('you lose');
+                }
+                
+            }
+    }
+
+    // Win condition
+    if(pellets.length === 0) {
+        console.log('You win!');
+        cancelAnimationFrame(animationId);
+    }
+
+    for(let i = powerUps.length - 1; 0 <= i; i--) {
+        const powerUp = powerUps[i];
+        powerUp.draw();
+        // Player collides with powerUp
+        if(
+            Math.hypot(
+                powerUp.position.x - player.position.x, 
+                powerUp.position.y - player.position.y
+            ) <
+            powerUp.radius + player.radius
+            ) {
+                powerUps.splice(i, 1);
+            
+                // Makes ghost scared
+                ghosts.forEach(ghost => {
+                ghost.scared = true;
+                setTimeout(() => {
+                    ghost.scared = false;
+                }, 5000);
+            });
+        };
+    }
+
     // Touch pellets dissapear 
-    for(let i = pellets.length - 1; 0 < i; i--) {
+    for(let i = pellets.length - 1; 0 <= i; i--) {
         const pellet = pellets[i];
         pellet.draw();
-        if(Math.hypot(pellet.position.x - player.position.x, pellet.position.y - player.position.y) <
-        pellet.radius + player.radius) {
+
+        if(
+            Math.hypot(
+                pellet.position.x - player.position.x, 
+                pellet.position.y - player.position.y
+            ) <
+            pellet.radius + player.radius
+            ) {
             pellets.splice(i, 1);
             score += 10;
             scoreEl.innerHTML = score;
@@ -437,6 +592,131 @@ function animate() {
     });
 
     player.update();
+
+    ghosts.forEach(ghost => {
+        ghost.update();
+
+        const collisions = [];
+        boundries.forEach(boundry => {
+            if(
+                !collisions.includes('right') &&
+                circleCollidesWithRectangle({
+                    circle: {
+                        ...ghost,
+                        velocity: {
+                            x: ghost.speed,
+                            y: 0
+                        }
+                    },
+                    rectangle: boundry
+                })
+            ) {
+                collisions.push('right');
+            };
+            if(
+                !collisions.includes('left') &&
+                circleCollidesWithRectangle({
+                    circle: {
+                        ...ghost,
+                        velocity: {
+                            x: -ghost.speed,
+                            y: 0
+                        }
+                    },
+                    rectangle: boundry
+                })
+            ) {
+                collisions.push('left');
+            };
+            if(
+                !collisions.includes('up') &&
+                circleCollidesWithRectangle({
+                    circle: {
+                        ...ghost,
+                        velocity: {
+                            x: 0,
+                            y: -ghost.speed
+                        }
+                    },
+                    rectangle: boundry
+                })
+            ) {
+                collisions.push('up');
+            };
+            if(
+                !collisions.includes('down') &&
+                circleCollidesWithRectangle({
+                    circle: {
+                        ...ghost,
+                        velocity: {
+                            x: 0,
+                            y: ghost.speed
+                        }
+                    },
+                    rectangle: boundry
+                })
+            ) {
+                collisions.push('down');
+            };
+        });
+        if(collisions.length > ghost.prevCollisions.length) {
+            ghost.prevCollisions = collisions;
+        }
+        
+        if(JSON.stringify(collisions) !== JSON.stringify(ghost.prevCollisions)) {
+            if(ghost.velocity.x > 0) {
+                ghost.prevCollisions.push('right');
+            }
+            else if(ghost.velocity.x < 0) {
+                ghost.prevCollisions.push('left');
+            }
+            else if(ghost.velocity.y < 0) {
+                ghost.prevCollisions.push('up');
+            }
+            else if(ghost.velocity.y > 0) {
+                ghost.prevCollisions.push('down');
+            }
+            const pathways = ghost.prevCollisions.filter((collision) => {
+                return !collisions.includes(collision);
+            });
+
+            const direction = pathways[Math.floor(Math.random() * pathways.length)];
+
+
+            switch (direction) {
+                case 'down':
+                    ghost.velocity.y = ghost.speed;
+                    ghost.velocity.x = 0;
+                    break
+                    
+                case 'up':
+                    ghost.velocity.y = -ghost.speed;
+                    ghost.velocity.x = 0;
+                    break
+
+                case 'right':
+                    ghost.velocity.y = 0;
+                    ghost.velocity.x = ghost.speed;
+                    break
+
+                case 'left':
+                    ghost.velocity.y = 0;
+                    ghost.velocity.x = -ghost.speed;
+                    break
+            }
+            ghost.prevCollisions = [];
+        }
+    });
+
+    if(player.velocity.x > 0) {
+        player.rotation = 0;
+    } else if(player.velocity.x < 0) {
+        player.rotation = Math.PI;
+    } else if(player.velocity.y > 0) {
+        player.rotation = Math.PI/2;
+    } else if(player.velocity.y < 0) {
+        player.rotation = Math.PI * 1.5;
+    }
 }
 
 animate();
