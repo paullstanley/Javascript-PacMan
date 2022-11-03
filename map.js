@@ -1,3 +1,4 @@
+"use sctrict";
 class Map {
     layout;
     constructor(layout) {

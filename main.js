@@ -1,4 +1,6 @@
 // main.js 
+"use sctrict";
+
 const canvas = document.querySelector('canvas');
 const ctx = canvas.getContext('2d');
 
@@ -313,24 +315,3 @@ addEventListener('keyup', ({ key }) => {
     };
 });
 
-addEventListener('touchstart', ({pos}) => {
-    if(pos.x > player.x) {
-        player.velocity.x = 5;
-        player.velocity.y = 0;
-    }
-    if(pos.x < player.x) {
-        player.velocity.x = -5;
-        player.velocity.y = 0;
-    }
-    if(pos.y > player.y) {
-        player.velocity.x = 0;
-        player.velocity.y = 5;
-    }
-    if(pos.y < player.y) {
-        player.velocity.x = 0;
-        player.velocity.y = -5;
-    }
-    if(pos) {
-        console.log('touched');
-    }
-});

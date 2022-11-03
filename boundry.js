@@ -1,3 +1,5 @@
+"use sctrict";
+
 class Boundry {
     static width = BOUNDRY_WIDTH;
     static height = BOUNDRY_HEIGHT;

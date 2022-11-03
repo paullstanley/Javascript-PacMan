@@ -1,3 +1,5 @@
+"use sctrict";
+
 class Ghost {
     static speed = 2;
     constructor({position, velocity, color = 'red'}) {

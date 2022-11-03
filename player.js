@@ -1,3 +1,5 @@
+"use sctrict";
+
 class Player {
     constructor({position, velocity}) {
         this.position = position;

@@ -1,3 +1,5 @@
+"use sctrict";
+
 class PowerUp {
     constructor({position}) {
         this.position = position;

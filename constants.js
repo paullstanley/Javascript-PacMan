@@ -1,3 +1,5 @@
+"use sctrict";
+
 const BOUNDRY_WIDTH = 40;
 const BOUNDRY_HEIGHT = 40;
 

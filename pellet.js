@@ -1,3 +1,5 @@
+"use sctrict";
+
 class Pellet {
     constructor({position}) {
         this.position = position;
